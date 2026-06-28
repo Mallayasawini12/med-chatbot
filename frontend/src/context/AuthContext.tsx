@@ -20,7 +20,7 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<string>;
   resetPassword: (password: string, token: string) => Promise<string>;
   verifyEmail: (token: string) => Promise<string>;
-  bypassAuth: () => void;
+  bypassAuth: (name?: string, email?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -140,11 +140,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const bypassAuth = () => {
+  const bypassAuth = (customName?: string, customEmail?: string) => {
     const mockUserData: UserProfile = {
       id: 'guest-user-id',
-      name: 'Guest Patient',
-      email: 'guest@symptomcare.ai',
+      name: customName || 'Guest Patient',
+      email: customEmail || 'guest@symptomcare.ai',
       isVerified: true,
       createdAt: new Date().toISOString()
     };
