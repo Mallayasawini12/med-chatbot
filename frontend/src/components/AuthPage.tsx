@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { ShieldAlert, CheckCircle, Eye, EyeOff, Activity, Stethoscope, Lock, Mail, User as UserIcon, LogIn, KeyRound } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
-  const { login, register, googleLogin, forgotPassword, resetPassword, verifyEmail, user } = useAuth();
+  const { login, register, googleLogin, forgotPassword, resetPassword, verifyEmail, user, bypassAuth } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -164,6 +164,11 @@ export const AuthPage: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleBypassLogin = () => {
+    bypassAuth();
+    navigate('/dashboard');
   };
 
   // Motion variants
@@ -329,6 +334,15 @@ export const AuthPage: React.FC = () => {
                       <LogIn className="w-4 h-4" />
                       <span>{submitting ? 'Authenticating...' : 'Sign In'}</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={handleBypassLogin}
+                      className="w-full mt-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-350 py-3 rounded-xl font-semibold transition-all flex items-center justify-center space-x-2 text-sm border border-slate-200 dark:border-slate-800"
+                    >
+                      <UserIcon className="w-4 h-4" />
+                      <span>Bypass Login (Instant Access)</span>
+                    </button>
                   </form>
 
                   {/* Google OAuth Option */}
@@ -452,6 +466,15 @@ export const AuthPage: React.FC = () => {
                     >
                       <LogIn className="w-4 h-4" />
                       <span>{submitting ? 'Registering...' : 'Register'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleBypassLogin}
+                      className="w-full mt-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-350 py-3 rounded-xl font-semibold transition-all flex items-center justify-center space-x-2 text-sm border border-slate-200 dark:border-slate-800"
+                    >
+                      <UserIcon className="w-4 h-4" />
+                      <span>Bypass Login (Instant Access)</span>
                     </button>
                   </form>
 

@@ -20,6 +20,7 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<string>;
   resetPassword: (password: string, token: string) => Promise<string>;
   verifyEmail: (token: string) => Promise<string>;
+  bypassAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -139,6 +140,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const bypassAuth = () => {
+    const mockUserData: UserProfile = {
+      id: 'guest-user-id',
+      name: 'Guest Patient',
+      email: 'guest@symptomcare.ai',
+      isVerified: true,
+      createdAt: new Date().toISOString()
+    };
+    const mockToken = 'guest-mock-jwt-token';
+    setToken(mockToken);
+    setUser(mockUserData);
+    localStorage.setItem('token', mockToken);
+    localStorage.setItem('user', JSON.stringify(mockUserData));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -152,6 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         forgotPassword,
         resetPassword,
         verifyEmail,
+        bypassAuth,
       }}
     >
       {children}
