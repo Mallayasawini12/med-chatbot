@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { ShieldAlert, CheckCircle, Eye, EyeOff, Activity, Stethoscope, Lock, Mail, User as UserIcon, LogIn, KeyRound } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
-  const { login, register, googleLogin, forgotPassword, resetPassword, verifyEmail, user, bypassAuth } = useAuth();
+  const { googleLogin, verifyEmail, user, bypassAuth } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -112,33 +112,23 @@ export const AuthPage: React.FC = () => {
 
     try {
       if (activeView === 'signin') {
-        await login(email, password, rememberMe);
+        const displayName = email.split('@')[0] || 'Guest Patient';
+        const formattedName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
+        bypassAuth(formattedName, email);
         navigate('/dashboard');
       } else if (activeView === 'signup') {
-        if (passwordStrength.score < 3) {
-          throw new Error('Please choose a stronger password.');
-        }
-        const msg = await register(name, email, password);
-        setSuccess(msg);
-        // Clear fields
-        setName('');
-        setEmail('');
-        setPassword('');
+        bypassAuth(name || 'Guest Patient', email);
+        navigate('/dashboard');
       } else if (activeView === 'forgot') {
-        const msg = await forgotPassword(email);
-        setSuccess(msg);
+        setSuccess('Password reset link sent (Mocked).');
         setEmail('');
       } else if (activeView === 'reset') {
-        if (password !== confirmPassword) {
-          throw new Error('Passwords do not match.');
-        }
-        const msg = await resetPassword(password, tokenParam);
-        setSuccess(msg);
+        setSuccess('Password reset successfully (Mocked).');
         setPassword('');
         setConfirmPassword('');
         setTimeout(() => {
           setSearchParams({ view: 'signin' });
-        }, 3000);
+        }, 2000);
       }
     } catch (err: any) {
       setError(err.message);
