@@ -86,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <div className="pt-4 border-t border-slate-100 dark:border-slate-900">
           <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl mb-4 flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400 font-bold border border-teal-500/10">
-              {user?.name.charAt(0).toUpperCase()}
+              {user?.name?.charAt(0).toUpperCase() || 'P'}
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{user?.name}</p>

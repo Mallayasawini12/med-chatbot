@@ -404,7 +404,7 @@ export const ChatInterface: React.FC = () => {
                   ? 'bg-teal-600 text-white font-bold'
                   : 'bg-white border border-slate-200 dark:border-slate-850 dark:bg-slate-900 text-teal-600 dark:text-teal-400'
               }`}>
-                {msg.role === 'user' ? user?.name.charAt(0).toUpperCase() : <Stethoscope className="w-4.5 h-4.5" />}
+                {msg.role === 'user' ? (user?.name?.charAt(0).toUpperCase() || 'P') : <Stethoscope className="w-4.5 h-4.5" />}
               </div>
 
               {/* Message Bubble text content */}

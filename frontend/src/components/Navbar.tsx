@@ -84,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               className="w-9 h-9 rounded-xl bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold hover:scale-105 transition-all cursor-pointer border border-teal-200/20"
               title="View Profile"
             >
-              {user.name.charAt(0).toUpperCase()}
+              {user?.name?.charAt(0).toUpperCase() || 'P'}
             </button>
             <div className="hidden lg:block text-left">
               <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-tight">{user.name}</p>
