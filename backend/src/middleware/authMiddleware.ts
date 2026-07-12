@@ -16,6 +16,15 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
     return res.status(401).json({ message: 'Authentication token required.' });
   }
 
+  // Handle local guest bypass token
+  if (token === 'guest-mock-jwt-token') {
+    req.user = {
+      id: 'guest-user-id',
+      email: 'guest@symptomcare.ai'
+    };
+    return next();
+  }
+
   const jwtSecret = process.env.JWT_SECRET || 'local_dev_secret_key_12345';
 
   jwt.verify(token, jwtSecret, (err, decoded: any) => {
