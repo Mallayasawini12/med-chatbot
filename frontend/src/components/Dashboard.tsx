@@ -36,6 +36,71 @@ export const Dashboard: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Vitals State
+  const [systolic, setSystolic] = useState<number>(120);
+  const [diastolic, setDiastolic] = useState<number>(80);
+  const [heartRate, setHeartRate] = useState<number>(72);
+  const [temperature, setTemperature] = useState<number>(98.6);
+  const [spo2, setSpo2] = useState<number>(98);
+  const [vitalsHistory, setVitalsHistory] = useState<any[]>([]);
+
+  // Load vitals history
+  useEffect(() => {
+    const saved = localStorage.getItem('vitals_history');
+    if (saved) {
+      try {
+        setVitalsHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const handleLogVitals = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newLog = {
+      systolic,
+      diastolic,
+      heartRate,
+      temperature,
+      spo2,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    };
+    const updatedHistory = [newLog, ...vitalsHistory].slice(0, 3); // keep last 3 logs
+    setVitalsHistory(updatedHistory);
+    localStorage.setItem('vitals_history', JSON.stringify(updatedHistory));
+  };
+
+  const getBpStatus = (sys: number, dia: number) => {
+    if (!sys || !dia) return { label: '--', styles: 'text-slate-500 bg-slate-100 dark:bg-slate-800' };
+    if (sys < 90 || dia < 60) return { label: 'Low BP', styles: 'text-sky-600 bg-sky-500/10 border-sky-500/20' };
+    if (sys <= 120 && dia <= 80) return { label: 'Optimal', styles: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' };
+    if (sys <= 139 || dia <= 89) return { label: 'Pre-HTN', styles: 'text-amber-600 bg-amber-500/10 border-amber-500/20' };
+    return { label: 'Hypertension', styles: 'text-rose-600 bg-rose-500/10 border-rose-500/20' };
+  };
+
+  const getHrStatus = (bpm: number) => {
+    if (!bpm) return { label: '--', styles: 'text-slate-500 bg-slate-100 dark:bg-slate-800' };
+    if (bpm < 60) return { label: 'Bradycardia', styles: 'text-sky-600 bg-sky-500/10 border-sky-500/20' };
+    if (bpm <= 100) return { label: 'Normal', styles: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' };
+    return { label: 'Tachycardia', styles: 'text-rose-600 bg-rose-500/10 border-rose-500/20' };
+  };
+
+  const getTempStatus = (temp: number) => {
+    if (!temp) return { label: '--', styles: 'text-slate-500 bg-slate-100 dark:bg-slate-800' };
+    if (temp < 97.0) return { label: 'Hypothermia', styles: 'text-sky-600 bg-sky-500/10 border-sky-500/20' };
+    if (temp <= 99.0) return { label: 'Normal', styles: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' };
+    if (temp <= 100.4) return { label: 'Low Fever', styles: 'text-amber-600 bg-amber-500/10 border-amber-500/20' };
+    return { label: 'High Fever', styles: 'text-rose-600 bg-rose-500/10 border-rose-500/20' };
+  };
+
+  const getSpStatus = (sat: number) => {
+    if (!sat) return { label: '--', styles: 'text-slate-500 bg-slate-100 dark:bg-slate-800' };
+    if (sat >= 95) return { label: 'Normal', styles: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' };
+    if (sat >= 90) return { label: 'Mild Hypoxia', styles: 'text-amber-600 bg-amber-500/10 border-amber-500/20' };
+    return { label: 'Severe Hypoxia', styles: 'text-rose-600 bg-rose-500/10 border-rose-500/20' };
+  };
+
   // Core health tips data
   const healthTips = [
     {
@@ -250,31 +315,169 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column: Health Tips Carousel */}
-        <div className="lg:col-span-5 space-y-4">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center space-x-2">
-            <BookOpen className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            <span>Health Guidance</span>
-          </h3>
+        {/* Right Column: Vitals Tracker + Health Tips */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Section: Vitals Tracker */}
+          <div className="glass-panel p-5 rounded-3xl border border-slate-200/50 dark:border-slate-800/80 space-y-4">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center space-x-2 pb-2 border-b border-slate-100 dark:border-slate-900">
+              <Activity className="w-4 h-4 text-teal-600 dark:text-teal-400 animate-pulse" />
+              <span>Patient Vitals Logger</span>
+            </h3>
 
-          <div className="space-y-4">
-            {healthTips.map((tip, idx) => (
-              <div
-                key={idx}
-                className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-[10px] font-bold tracking-wider uppercase bg-teal-500/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-md">
-                      {tip.category}
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-slate-800 dark:text-white text-sm mb-1.5">{tip.title}</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{tip.desc}</p>
+            <form onSubmit={handleLogVitals} className="space-y-3.5">
+              {/* BP Inputs */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Blood Pressure (mmHg)</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getBpStatus(systolic, diastolic).styles}`}>
+                    {getBpStatus(systolic, diastolic).label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={systolic}
+                    onChange={(e) => setSystolic(Number(e.target.value))}
+                    placeholder="Sys"
+                    min="60"
+                    max="220"
+                    className="w-1/2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs dark:text-white focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                  <span className="text-slate-400">/</span>
+                  <input
+                    type="number"
+                    value={diastolic}
+                    onChange={(e) => setDiastolic(Number(e.target.value))}
+                    placeholder="Dia"
+                    min="40"
+                    max="140"
+                    className="w-1/2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs dark:text-white focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
                 </div>
               </div>
-            ))}
+
+              {/* Heart Rate & SpO2 Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Heart Rate */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Heart Rate (bpm)</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getHrStatus(heartRate).styles}`}>
+                      {getHrStatus(heartRate).label}
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    value={heartRate}
+                    onChange={(e) => setHeartRate(Number(e.target.value))}
+                    placeholder="72"
+                    min="30"
+                    max="200"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs dark:text-white focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                </div>
+
+                {/* Oxygen Saturation SpO2 */}
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Oxygen (SpO2 %)</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getSpStatus(spo2).styles}`}>
+                      {getSpStatus(spo2).label}
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    value={spo2}
+                    onChange={(e) => setSpo2(Number(e.target.value))}
+                    placeholder="98"
+                    min="50"
+                    max="100"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs dark:text-white focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              {/* Temperature */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Body Temperature (°F)</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${getTempStatus(temperature).styles}`}>
+                    {getTempStatus(temperature).label}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={temperature}
+                  onChange={(e) => setTemperature(Number(e.target.value))}
+                  placeholder="98.6"
+                  min="90"
+                  max="110"
+                  className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 text-xs dark:text-white focus:outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md flex items-center justify-center space-x-1.5 cursor-pointer hover:scale-[1.01]"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Log Today's Vitals</span>
+              </button>
+            </form>
+
+            {/* History Logs list */}
+            {vitalsHistory.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-900/80 space-y-1.5">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Recent Vital Logs</span>
+                <div className="space-y-1.5">
+                  {vitalsHistory.map((h, i) => (
+                    <div key={i} className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-900/40 rounded-xl text-[10px] border border-slate-100 dark:border-slate-850">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="font-semibold text-slate-700 dark:text-slate-350">BP: {h.systolic}/{h.diastolic}</span>
+                        <span className="text-slate-400">•</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-350">HR: {h.heartRate} bpm</span>
+                        <span className="text-slate-400">•</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-350">Temp: {h.temperature}°F</span>
+                        <span className="text-slate-400">•</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-350">SpO2: {h.spo2}%</span>
+                      </div>
+                      <span className="text-slate-400 flex-shrink-0 font-medium">{h.timestamp}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Section: Health Guidance */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center space-x-2">
+              <BookOpen className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+              <span>Health Guidance</span>
+            </h3>
+
+            <div className="space-y-4">
+              {healthTips.slice(0, 2).map((tip, idx) => (
+                <div
+                  key={idx}
+                  className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-bold tracking-wider uppercase bg-teal-500/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 rounded-md">
+                        {tip.category}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-slate-800 dark:text-white text-sm mb-1.5">{tip.title}</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{tip.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
 
       </div>

@@ -123,7 +123,7 @@ In another terminal, start the frontend:
 npm run dev
 ```
 
-The client will be running at [http://localhost:5173](http://localhost:5173) and the API server at [http://localhost:5000](http://localhost:5000).
+The client will be running at [http://localhost:5180](http://localhost:5180) and the API server at [http://localhost:5080](http://localhost:5080).
 
 ---
 
