@@ -34,11 +34,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      
       if (storedToken) {
         setToken(storedToken);
         try {
-          const res = await api.get('/auth/profile');
-          setUser(res.data);
+          if (storedUser) {
+            setUser(JSON.parse(storedUser));
+          }
+          
+          // Verify with backend only if it is NOT a guest session
+          if (storedToken !== 'guest-mock-jwt-token') {
+            const res = await api.get('/auth/profile');
+            setUser(res.data);
+            localStorage.setItem('user', JSON.stringify(res.data));
+          }
         } catch (err) {
           console.error('Session restore failed:', err);
           // Clean up expired session
