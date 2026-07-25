@@ -136,9 +136,32 @@ export const Dashboard: React.FC = () => {
     const fetchRecentSessions = async () => {
       try {
         const res = await api.get('/chat/sessions');
-        setSessions(res.data.slice(0, 3)); // Keep the 3 most recent
+        if (Array.isArray(res.data)) {
+          setSessions(res.data.slice(0, 3));
+        } else {
+          const stored = localStorage.getItem('offline_chat_sessions');
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed)) setSessions(parsed.slice(0, 3));
+              else setSessions([]);
+            } catch (e) { setSessions([]); }
+          } else {
+            setSessions([]);
+          }
+        }
       } catch (err) {
         console.error('Failed to load sessions:', err);
+        const stored = localStorage.getItem('offline_chat_sessions');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) setSessions(parsed.slice(0, 3));
+            else setSessions([]);
+          } catch (e) { setSessions([]); }
+        } else {
+          setSessions([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -149,12 +172,14 @@ export const Dashboard: React.FC = () => {
 
   const handleCategoryClick = async (queryText: string) => {
     try {
-      // Create a new session automatically with the category query as initialMessage
       const res = await api.post('/chat/sessions', { initialMessage: queryText });
-      navigate(`/chat?session=${res.data._id}`);
+      if (res.data && res.data._id) {
+        navigate(`/chat?session=${res.data._id}`);
+      } else {
+        navigate('/chat');
+      }
     } catch (err) {
       console.error('Error starting category consultation:', err);
-      // Fallback: navigate to chat screen directly
       navigate('/chat');
     }
   };
@@ -170,9 +195,14 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    try {
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? new Date().toLocaleDateString() : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {
+      return new Date().toLocaleDateString();
+    }
   };
 
   return (
@@ -259,7 +289,7 @@ export const Dashboard: React.FC = () => {
               <div className="w-8 h-8 border-3 border-teal-200 border-t-teal-600 rounded-full animate-spin"></div>
               <p className="text-xs text-slate-400">Loading consultation logs...</p>
             </div>
-          ) : sessions.length === 0 ? (
+          ) : !Array.isArray(sessions) || sessions.length === 0 ? (
             <div className="glass-panel p-8 rounded-2xl text-center h-52 flex flex-col items-center justify-center space-y-4 border border-dashed border-slate-200 dark:border-slate-800">
               <div className="p-3.5 bg-teal-500/10 rounded-full text-teal-600 dark:text-teal-400">
                 <Heart className="w-6 h-6" />
@@ -271,38 +301,41 @@ export const Dashboard: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3.5">
-              {sessions.map((session) => (
-                <div
-                  key={session._id}
-                  onClick={() => navigate(`/chat?session=${session._id}`)}
-                  className="glass-card p-4.5 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 hover:border-teal-500/20 cursor-pointer flex items-center justify-between gap-4"
-                >
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-slate-800 dark:text-white text-sm truncate max-w-[200px] sm:max-w-xs block">
-                        {session.title}
-                      </span>
-                      {session.summary?.urgency && (
-                        <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${getUrgencyBadgeColor(session.summary.urgency)}`}>
-                          {session.summary.urgency}
+              {sessions.map((session, idx) => {
+                if (!session || typeof session !== 'object') return null;
+                return (
+                  <div
+                    key={session._id || idx}
+                    onClick={() => navigate(`/chat?session=${session._id}`)}
+                    className="glass-card p-4.5 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 hover:border-teal-500/20 cursor-pointer flex items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-slate-800 dark:text-white text-sm truncate max-w-[200px] sm:max-w-xs block">
+                          {session.title || 'Consultation Log'}
                         </span>
-                      )}
+                        {session.summary?.urgency && (
+                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${getUrgencyBadgeColor(session.summary.urgency)}`}>
+                            {session.summary.urgency}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 space-x-3">
+                        <span>{formatDate(session.createdAt)}</span>
+                        {Array.isArray(session.symptoms) && session.symptoms.length > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate max-w-[150px] sm:max-w-xs">{session.symptoms.join(', ')}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center text-xs text-slate-500 dark:text-slate-400 space-x-3">
-                      <span>{formatDate(session.createdAt)}</span>
-                      {session.symptoms?.length > 0 && (
-                        <>
-                          <span>•</span>
-                          <span className="truncate max-w-[150px] sm:max-w-xs">{session.symptoms.join(', ')}</span>
-                        </>
-                      )}
+                    <div className="p-2 bg-slate-100 dark:bg-slate-900 rounded-xl text-slate-400 group-hover:text-teal-600 group-hover:bg-teal-500/10 transition-all flex-shrink-0">
+                      <ChevronRight className="w-5 h-5" />
                     </div>
                   </div>
-                  <div className="p-2 bg-slate-100 dark:bg-slate-900 rounded-xl text-slate-400 group-hover:text-teal-600 group-hover:bg-teal-500/10 transition-all flex-shrink-0">
-                    <ChevronRight className="w-5 h-5" />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
