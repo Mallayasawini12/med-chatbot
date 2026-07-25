@@ -45,28 +45,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Invalid user JSON:', e);
           }
         }
-        
-        // Verify with backend only if it is NOT a guest session
-        if (storedToken !== 'guest-mock-jwt-token') {
-          try {
-            const res = await api.get('/auth/profile');
-            if (res.data && res.data.email) {
-              setUser(res.data);
-              localStorage.setItem('user', JSON.stringify(res.data));
-            }
-          } catch (err: any) {
-            console.warn('Backend profile verification unavailable, preserving local session:', err);
-            // ONLY invalidate session if server explicitly returns 401 Unauthorized or 403 Forbidden
-            if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              setToken(null);
-              setUser(null);
-            }
+      }
+
+      // Finish loading state immediately so UI renders instantly without delay
+      setLoading(false);
+      
+      // Optionally verify token in background if API is reachable
+      if (storedToken && storedToken !== 'guest-mock-jwt-token') {
+        try {
+          const res = await api.get('/auth/profile');
+          if (res.data && res.data.email) {
+            setUser(res.data);
+            localStorage.setItem('user', JSON.stringify(res.data));
+          }
+        } catch (err: any) {
+          console.warn('Background profile check skipped (offline/static mode):', err);
+          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setToken(null);
+            setUser(null);
           }
         }
       }
-      setLoading(false);
     };
 
     initializeAuth();
