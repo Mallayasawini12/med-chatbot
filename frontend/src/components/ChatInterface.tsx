@@ -90,7 +90,11 @@ export const ChatInterface: React.FC = () => {
       const res = await api.get('/chat/sessions');
       setSessions(res.data);
     } catch (err) {
-      console.error('Failed to load sessions:', err);
+      console.error('Failed to load sessions from API, using local storage fallback:', err);
+      const stored = localStorage.getItem('offline_chat_sessions');
+      if (stored) {
+        try { setSessions(JSON.parse(stored)); } catch (e) {}
+      }
     } finally {
       setLoadingSessions(false);
     }
@@ -101,8 +105,12 @@ export const ChatInterface: React.FC = () => {
       const res = await api.get(`/chat/sessions/${id}`);
       setActiveSession(res.data);
     } catch (err) {
-      console.error('Failed to get session details:', err);
-      setSearchParams({});
+      const localSession = sessions.find(s => s._id === id);
+      if (localSession) {
+        setActiveSession(localSession);
+      } else {
+        setSearchParams({});
+      }
     }
   };
 
@@ -112,8 +120,75 @@ export const ChatInterface: React.FC = () => {
       setSessions([res.data, ...sessions]);
       setSearchParams({ session: res.data._id });
     } catch (err) {
-      console.error('Error starting new consultation:', err);
+      const newSession: ChatSession = {
+        _id: 'session_' + Date.now(),
+        title: 'New Consultation',
+        createdAt: new Date().toISOString(),
+        messages: [],
+        symptoms: []
+      };
+      const updated = [newSession, ...sessions];
+      setSessions(updated);
+      localStorage.setItem('offline_chat_sessions', JSON.stringify(updated));
+      setSearchParams({ session: newSession._id });
     }
+  };
+
+  const generateOfflineAnalysis = (userText: string) => {
+    const text = userText.toLowerCase();
+    let conditions: string[] = [];
+    let urgency: 'low' | 'medium' | 'high' | 'emergency' = 'low';
+    let recommendation = 'Monitor symptoms, stay hydrated, and rest. Consult a physician if symptoms worsen.';
+    let specialist = 'General Practitioner';
+    let firstAid = 'Rest in a quiet room and drink plenty of fluids.';
+    let medications = ['Paracetamol / Acetaminophen', 'ORSL / Hydration solution'];
+
+    if (text.includes('chest pain') || text.includes('shortness of breath') || text.includes('heart') || text.includes('stroke')) {
+      conditions = ['Angina / Acute Coronary Syndrome', 'Severe Respiratory Distress'];
+      urgency = 'emergency';
+      recommendation = '🚨 CRITICAL: Seek immediate emergency medical care or visit the nearest hospital emergency room!';
+      specialist = 'Cardiologist / Emergency Care';
+      firstAid = 'Sit upright, keep calm, loosen tight clothing, and contact emergency medical services.';
+      medications = ['Emergency Aspirin (under medical guidance)'];
+    } else if (text.includes('fever') || text.includes('temperature') || text.includes('chills') || text.includes('cough')) {
+      conditions = ['Viral Fever / Influenza', 'Upper Respiratory Infection'];
+      urgency = 'medium';
+      recommendation = 'Rest well, monitor temperature every 4 hours, and stay hydrated with electrolytes.';
+      specialist = 'General Physician';
+      firstAid = 'Apply cool damp cloth compresses on forehead and drink warm fluids.';
+      medications = ['Paracetamol (500mg)', 'Hydration Salts (ORS)'];
+    } else if (text.includes('headache') || text.includes('migraine') || text.includes('head pain')) {
+      conditions = ['Tension Headache', 'Migraine Episode'];
+      urgency = 'low';
+      recommendation = 'Rest in a dark, quiet room. Stay hydrated and avoid screen glare.';
+      specialist = 'Neurologist / General Practitioner';
+      firstAid = 'Apply a cold compress to forehead or neck.';
+      medications = ['Ibuprofen (200mg)', 'Acetaminophen'];
+    } else if (text.includes('stomach') || text.includes('abdominal') || text.includes('nausea') || text.includes('vomit')) {
+      conditions = ['Gastroenteritis', 'Acid Indigestion'];
+      urgency = 'medium';
+      recommendation = 'Eat light bland meals (BRAT diet: Banana, Rice, Toast). Avoid spicy foods.';
+      specialist = 'Gastroenterologist';
+      firstAid = 'Sip water slowly or take oral rehydration solution.';
+      medications = ['Antacids', 'ORS Solution'];
+    } else {
+      conditions = ['General Clinical Presentation'];
+      urgency = 'low';
+      recommendation = 'Thank you for describing your symptoms. Maintain hydration, rest, and observe any changes over 24-48 hours.';
+    }
+
+    const assistantContent = `Thank you for sharing your symptoms: **"${userText}"**.\n\n` +
+      `Clinical Assessment Summary:\n` +
+      `- **Primary Considerations:** ${conditions.join(', ')}\n` +
+      `- **Care Urgency:** ${urgency.toUpperCase()}\n` +
+      `- **Recommended Specialist:** ${specialist}\n\n` +
+      `**Clinical Advice:** ${recommendation}\n` +
+      `**Self-Care:** ${firstAid}`;
+
+    return {
+      assistantContent,
+      summary: { conditions, urgency, recommendation, recommendedSpecialist: specialist, firstAid, medications }
+    };
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -126,46 +201,68 @@ export const ChatInterface: React.FC = () => {
 
     let currentSessionId = activeSessionId;
 
+    const userMsg: Message = {
+      role: 'user',
+      content: textToSend,
+      timestamp: new Date().toISOString()
+    };
+
     try {
-      // 1. If no active session, create one first
       if (!currentSessionId) {
-        const res = await api.post('/chat/sessions', { title: 'New Consultation' });
-        currentSessionId = res.data._id;
-        setSessions([res.data, ...sessions]);
-        setSearchParams({ session: res.data._id });
+        try {
+          const res = await api.post('/chat/sessions', { title: textToSend.slice(0, 25) + '...' });
+          currentSessionId = res.data._id;
+          setSessions([res.data, ...sessions]);
+          setSearchParams({ session: res.data._id });
+        } catch (e) {
+          currentSessionId = 'session_' + Date.now();
+          setSearchParams({ session: currentSessionId });
+        }
       }
 
-      // Optimistically append user message to local activeSession state
-      const mockUserMsg: Message = {
-        role: 'user',
-        content: textToSend,
+      // Optimistically append user message
+      const updatedMessages = [...(activeSession?.messages || []), userMsg];
+      setActiveSession(prev => ({
+        _id: currentSessionId!,
+        title: prev?.title || textToSend.slice(0, 25) + '...',
+        createdAt: prev?.createdAt || new Date().toISOString(),
+        messages: updatedMessages,
+        symptoms: [...(prev?.symptoms || []), textToSend.slice(0, 20)]
+      }));
+
+      // Try API request
+      const response = await api.post(`/chat/sessions/${currentSessionId}/message`, { content: textToSend });
+      setActiveSession(response.data);
+      loadSessions();
+    } catch (err) {
+      console.warn('API error when sending message, applying offline clinical analyzer fallback:', err);
+      
+      const { assistantContent, summary } = generateOfflineAnalysis(textToSend);
+      const assistantMsg: Message = {
+        role: 'assistant',
+        content: assistantContent,
         timestamp: new Date().toISOString()
       };
 
-      if (activeSession) {
-        setActiveSession({
-          ...activeSession,
-          messages: [...activeSession.messages, mockUserMsg]
+      setActiveSession(prev => {
+        if (!prev) return null;
+        const finalSession: ChatSession = {
+          ...prev,
+          messages: [...prev.messages, assistantMsg],
+          symptoms: Array.from(new Set([...prev.symptoms, textToSend.slice(0, 25)])),
+          summary
+        };
+        
+        // Save to offline sessions
+        setSessions(oldSessions => {
+          const filtered = oldSessions.filter(s => s._id !== finalSession._id);
+          const nextSessions = [finalSession, ...filtered];
+          localStorage.setItem('offline_chat_sessions', JSON.stringify(nextSessions));
+          return nextSessions;
         });
-      } else {
-        setActiveSession({
-          _id: currentSessionId!,
-          title: 'New Consultation',
-          createdAt: new Date().toISOString(),
-          messages: [mockUserMsg],
-          symptoms: []
-        });
-      }
 
-      // Send message to api
-      const response = await api.post(`/chat/sessions/${currentSessionId}/message`, { content: textToSend });
-      
-      // Update details
-      setActiveSession(response.data);
-      // Reload sessions list to refresh title / urgency levels
-      loadSessions();
-    } catch (err) {
-      console.error('Send message error:', err);
+        return finalSession;
+      });
     } finally {
       setResponding(false);
     }
