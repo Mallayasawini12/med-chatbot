@@ -38,24 +38,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (storedToken) {
         setToken(storedToken);
-        try {
-          if (storedUser) {
+        if (storedUser) {
+          try {
             setUser(JSON.parse(storedUser));
+          } catch (e) {
+            console.error('Invalid user JSON:', e);
           }
-          
-          // Verify with backend only if it is NOT a guest session
-          if (storedToken !== 'guest-mock-jwt-token') {
+        }
+        
+        // Verify with backend only if it is NOT a guest session
+        if (storedToken !== 'guest-mock-jwt-token') {
+          try {
             const res = await api.get('/auth/profile');
-            setUser(res.data);
-            localStorage.setItem('user', JSON.stringify(res.data));
+            if (res.data && res.data.email) {
+              setUser(res.data);
+              localStorage.setItem('user', JSON.stringify(res.data));
+            }
+          } catch (err: any) {
+            console.warn('Backend profile verification unavailable, preserving local session:', err);
+            // ONLY invalidate session if server explicitly returns 401 Unauthorized or 403 Forbidden
+            if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setToken(null);
+              setUser(null);
+            }
           }
-        } catch (err) {
-          console.error('Session restore failed:', err);
-          // Clean up expired session
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setToken(null);
-          setUser(null);
         }
       }
       setLoading(false);
